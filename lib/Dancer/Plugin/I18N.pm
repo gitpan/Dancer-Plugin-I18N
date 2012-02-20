@@ -13,7 +13,7 @@ use I18N::LangTags::List;
 
 use Locale::Maketext::Simple;
 
-our $VERSION = '0.10';
+our $VERSION = '0.11';
 #our %options = ( Export => '_loc', Decode => 1 );
 #our %options = ( Decode => 1, Encoding => 'utf-8' );
 our %options = ( Decode => 1 );
@@ -54,23 +54,23 @@ Dancer::Plugin::I18n - Intenationalization for Dancer
    msgid "messages.hello.dancer"
    msgstr "Hello Dancer - fallback translation"
    
-	# MyApp/I18N/fr.pm
-    package myapp::I18N::fr;
-    use base 'myapp::I18N';
-    our %Lexicon = ( hello => 'bonjour' );
-    1;
+   # MyApp/I18N/fr.pm
+   package myapp::I18N::fr;
+   use base 'myapp::I18N';
+   our %Lexicon = ( hello => 'bonjour' );
+   1;
 
-    package myapp;
-    use Dancer;
-    use Dancer::Plugin::I18N;
-    get '/' => sub {
-		my $lang = languages ;
-		print @$lang . "\n"; 
-    	languages( ['de'] );
-    	print STDERR localize('Hello Dancer');
+   package myapp;
+   use Dancer;
+   use Dancer::Plugin::I18N;
+   get '/' => sub {
+        my $lang = languages ;
+        print @$lang . "\n";
+        languages( ['de'] );
+        print STDERR localize('Hello Dancer');
 
-		template 'index' 
-	};
+        template 'index' 
+    };
 
     # index.tt
     hello in <% languages %> => <% l('hello') %>
@@ -85,9 +85,9 @@ Dancer::Plugin::I18n - Intenationalization for Dancer
 
 =head1 DESCRIPTION
 
-Dancer::Plugin::I18n add L<Locale::Maketext::Simple> to your L<Dancer> application
-
 Supports mo/po files and Maketext classes under your application's I18N namespace.
+
+Dancer::Plugin::I18N add L<Locale::Maketext::Simple> to your L<Dancer> application
 
 =cut
 
@@ -123,11 +123,11 @@ config file section. For example, the following configuration will override
 the C<Decode> parameter which normally defaults to C<1>:
 
     plugins:
-        I18N:
-			directory: I18N
-			lang_default: en
-            maketext_options:
-            	Decode: 0
+       I18N:
+          directory: I18N
+          lang_default: en
+          maketext_options:
+               Decode: 0
 
 All languages fallback to MyApp::I18N which is mapped onto the i-default
 language tag or change this via options 'language_default'. 
@@ -176,7 +176,7 @@ Standart directory is in C<I18N>.
 
 =head1 METHODS
 
-=head3 languages
+=head2 languages
 
 Contains languages.
 
@@ -184,15 +184,15 @@ Contains languages.
    my $lang = languages;
    print join '', @$lang;
 
-=head2 1. Putting new language as first in finded
+=head3 1. Putting new language as first in finded
 
    languages('de_DE'); 
 
-=head2 2. Erase all and putting new languages as in arrayref
+=head3 2. Erase all and putting new languages as in arrayref
 
    languages(['de_DE',....,'en']); 
 
-=head2 3. Return putted languages in every ret or
+=head3 3. Return putted languages
 
    languages();
 
@@ -225,7 +225,7 @@ register languages		=> sub {
 	return $handle->{languages};
 };
 
-=head3 language
+=head2 language
 
 return selected locale in your locales list or check if given locale is used(same as language_tag).
 
@@ -244,7 +244,7 @@ register language		=> sub {
     return $lang;
 };
 
-=head3 language_tag
+=head2 language_tag
 
 return language tag for current locale. The most notable difference from this
 method in comparison to C<language()> is typically that languages and regions
@@ -253,11 +253,11 @@ are joined with a dash and not an underscore.
     language(); # en_us
     language_tag(); # en-us
 
-=head2 1. Returning selected locale 
+=head3 1. Returning selected locale 
 
 	print language_tag();
 
-=head2 2. Test if given locale used
+=head3 2. Test if given locale used
 
 	if (language_tag('en'))	{}
 
@@ -271,24 +271,24 @@ register language_tag	=> sub {
     my $ret = $handle ? "$class\::I18N"->get_handle( @{ $handle->{languages} } )->language_tag : "";
 
 	if (defined($lang_test))	{
-		return 1 if ($ret =~ /$lang_test/);
+		return 1 if ($ret eq $lang_test || $ret =~ /^$lang_test/);
 		return 0;
 	}
 
 	return $ret;
 };
 
-=head3 installed_languages
+=head2 installed_languages
 
 Returns a hash of { langtag => "descriptive name for language" } based on language files
 in your application's I18N directory. The descriptive name is based on I18N::LangTags::List information.
 If the descriptive name is not available, will be undef.
 
-=head2 1. Returning hashref installed language files
+=head3 1. Returning hashref installed language files
 
 	my $l = installed_language();
 
-=head2 2. Test if given locale is installed in hashref
+=head3 2. Test if given locale is installed in hashref
 
 	my $t = installed_language('en');
 	
@@ -299,21 +299,28 @@ register installed_languages	=> sub {
 	if (defined($handle))	{
 		if (defined($_[0]))	{
 			return 1 if($handle->{installed_languages} && $handle->{installed_languages}->{$_[0]});
-			return;
+			return 0;
 		}
 		return $handle->{installed_languages};
 	}
 };
 
-=head3 l
-
-=head3 localize
+=head2 l | localize
 
 Localize text.
 
     print localize( 'Welcome to Dancer, [_1]', 'sri' );
 
+is same as
+
+    print l( 'Welcome to Dancer, [_1]', 'sri' );
+
+or in template
+  
+    <% l('Welcome to Dancer, [_1]', 'sri' ) %>
+
 =cut
+
 register localize		=> sub { _localize(@_); };
 register l				=> sub { _localize(@_); };
 
@@ -332,14 +339,18 @@ sub _localize {
 =head1 SEE ALSO
 
 L<Dancer>
+
 L<Catalyst::Plugin::I18N>
 
 =head1 AUTHOR
 
 franck cuny E<lt>franck@lumberjaph.netE<gt>
+
 Igor Bujna E<lt>igor.bujna@post.czE<gt>
 
-and thanks for authors of L<Catalyst::Plugin::I18N> with idea how make it.
+=head1 ACKNOWLEDGEMENTS
+
+Thanks for authors of L<Catalyst::Plugin::I18N> with idea how make it.
 
 =head1 LICENSE
 
@@ -351,4 +362,3 @@ it under the same terms as Perl itself.
 register_plugin;
 
 1;
-__END__

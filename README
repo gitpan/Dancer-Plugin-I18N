@@ -1,33 +1,144 @@
 NAME
-    Dancer::Plugin::I18N - Intenationalization for Dancer
+    Dancer::Plugin::I18n - Intenationalization for Dancer
 
 SYNOPSIS
-        package myapp::I18N::fr;
-        use base 'myapp::I18N';
-        our %Lexicon = ( hello => 'bonjour' );
-        1;
+       # MyApp/I18N/de.po
+       msgid "Hello Dancer"
+       msgstr "Hallo Tänzerin"
+   
+       # MyApp/I18N/i_default.po
+       msgid "messages.hello.dancer"
+       msgstr "Hello Dancer - fallback translation"
+   
+       # MyApp/I18N/fr.pm
+       package myapp::I18N::fr;
+       use base 'myapp::I18N';
+       our %Lexicon = ( hello => 'bonjour' );
+       1;
 
-        package myapp;
-        use Dancer;
-        use Dancer::Plugin::I18N;
-        get '/' => sub { template 'index' };
+       package myapp;
+       use Dancer;
+       use Dancer::Plugin::I18N;
+       get '/' => sub {
+            my $lang = languages ;
+            print @$lang . "\n";
+            languages( ['de'] );
+            print STDERR localize('Hello Dancer');
+
+            template 'index' 
+        };
 
         # index.tt
         hello in <% languages %> => <% l('hello') %>
         # or
         <% languages('fr') %>This is an <% l('hello') %>
+        # or
+        <% l('Hello Dancer') %>
+        <% l('Hello [_1]', 'Dancer') %>
+        <[% l('lalala[_1]lalala[_2]', ['test', 'foo']) %>
+        <% l('messages.hello.dancer') %>
 
 DESCRIPTION
-    Dancer::Plugin::I18N add Locale::Maketext to your Dancer application
+    Supports mo/po files and Maketext classes under your application's I18N
+    namespace.
+
+    Dancer::Plugin::I18N add Locale::Maketext::Simple to your Dancer
+    application
+
+CONFIGURATION
+    You can override any parameter sent to Locale::Maketext::Simple by
+    specifying a "maketext_options" hashref to the "Plugin::I18N" in you
+    Dancer application config file section. For example, the following
+    configuration will override the "Decode" parameter which normally
+    defaults to 1:
+
+        plugins:
+           I18N:
+              directory: I18N
+              lang_default: en
+              maketext_options:
+                   Decode: 0
+
+    All languages fallback to MyApp::I18N which is mapped onto the i-default
+    language tag or change this via options 'language_default'. If you use
+    arbitrary message keys, use i_default.po to translate into English,
+    otherwise the message key itself is returned.
+
+    Standart directory is in "I18N".
 
 METHODS
   languages
-  l
-AUTHOR
-    franck cuny <franck@lumberjaph.net>
-    igor bujna <igor.bujna@post.cz>
+    Contains languages.
+
+       languages(['de_DE']);
+       my $lang = languages;
+       print join '', @$lang;
+
+   1. Putting new language as first in finded
+       languages('de_DE');
+
+   2. Erase all and putting new languages as in arrayref
+       languages(['de_DE',....,'en']);
+
+   3. Return putted languages
+       languages();
+
+  language
+    return selected locale in your locales list or check if given locale is
+    used(same as language_tag).
+
+  language_tag
+    return language tag for current locale. The most notable difference from
+    this method in comparison to "language()" is typically that languages
+    and regions are joined with a dash and not an underscore.
+
+        language(); # en_us
+        language_tag(); # en-us
+
+   1. Returning selected locale
+            print language_tag();
+
+   2. Test if given locale used
+            if (language_tag('en')) {}
+
+  installed_languages
+    Returns a hash of { langtag => "descriptive name for language" } based
+    on language files in your application's I18N directory. The descriptive
+    name is based on I18N::LangTags::List information. If the descriptive
+    name is not available, will be undef.
+
+   1. Returning hashref installed language files
+            my $l = installed_language();
+
+   2. Test if given locale is installed in hashref
+            my $t = installed_language('en');
+
+  l | localize
+    Localize text.
+
+        print localize( 'Welcome to Dancer, [_1]', 'sri' );
+
+    is same as
+
+        print l( 'Welcome to Dancer, [_1]', 'sri' );
+
+    or in template
+
+        <% l('Welcome to Dancer, [_1]', 'sri' ) %>
 
 SEE ALSO
+    Dancer
+
+    Catalyst::Plugin::I18N
+
+AUTHOR
+    franck cuny <franck@lumberjaph.net>
+
+    Igor Bujna <igor.bujna@post.cz>
+
+ACKNOWLEDGEMENTS
+    Thanks for authors of Catalyst::Plugin::I18N with idea how make it.
+
 LICENSE
     This library is free software; you can redistribute it and/or modify it
     under the same terms as Perl itself.
