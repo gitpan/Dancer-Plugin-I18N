@@ -42,7 +42,7 @@ add_hook(
 
 =head1 NAME
 
-Dancer::Plugin::I18n - Intenationalization for Dancer
+Dancer::Plugin::I18N - Intenationalization for Dancer
 
 =head1 SYNOPSIS
 
