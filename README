@@ -1,5 +1,5 @@
 NAME
-    Dancer::Plugin::I18n - Intenationalization for Dancer
+    Dancer::Plugin::I18N - Intenationalization for Dancer
 
 SYNOPSIS
        # MyApp/I18N/de.po
@@ -37,6 +37,12 @@ SYNOPSIS
         <% l('Hello [_1]', 'Dancer') %>
         <[% l('lalala[_1]lalala[_2]', ['test', 'foo']) %>
         <% l('messages.hello.dancer') %>
+        # or for big texts
+        <% IF language_tag('fr') %>
+        ...
+        <% ELSE %>
+        ...
+        <% ENDIF %>
 
 DESCRIPTION
     Supports mo/po files and Maketext classes under your application's I18N
@@ -64,7 +70,8 @@ CONFIGURATION
     arbitrary message keys, use i_default.po to translate into English,
     otherwise the message key itself is returned.
 
-    Standart directory is in "I18N".
+    Standart directory is in "I18N". In this directory are stored every lang
+    files (*.pm|po|mo).
 
 METHODS
   languages
@@ -125,6 +132,37 @@ METHODS
     or in template
 
         <% l('Welcome to Dancer, [_1]', 'sri' ) %>
+
+OUTLINE
+        $ dancer -a MyAPP
+        $ cd MyAPP
+        $ mkdir I18N
+        $ xgettext.pl --output=I18N/messages.pot --directory=lib/
+        $ ls I18N/
+        messages.pot
+
+        $ msginit --input=messages.pot --output=sv.po --locale=sv.utf8
+        Created I18N/sv.po.
+
+        $ vim I18N/sv.po
+
+        "Content-Type: text/plain; charset=utf-8\n"
+
+        #: lib/MyApp.pm:50
+        msgid "Guest"
+        msgstr "Gäst"
+    
+        #. ($name)
+        #: lib/MyApp.pm:54
+        msgid "Welcome %1!"
+        msgstr "Välkommen %1!"
+
+        $ xgettext.pl --output=I18N/messages.pot --directory=view/
+        $ msgmerge --update I18N/sv.po I18N/messages.pot
+        . done.
+
+        # compile message catalog to binary format
+        $ msgfmt --output-file=I18N/sv.mo I18N/sv.po
 
 SEE ALSO
     Dancer

@@ -12,8 +12,9 @@ use I18N::LangTags::Detect;
 use I18N::LangTags::List;
 
 use Locale::Maketext::Simple;
+#require Locale::Maketext::Simple;
 
-our $VERSION = '0.11';
+our $VERSION = '0.13';
 #our %options = ( Export => '_loc', Decode => 1 );
 #our %options = ( Decode => 1, Encoding => 'utf-8' );
 our %options = ( Decode => 1 );
@@ -81,6 +82,12 @@ Dancer::Plugin::I18N - Intenationalization for Dancer
     <% l('Hello [_1]', 'Dancer') %>
     <[% l('lalala[_1]lalala[_2]', ['test', 'foo']) %>
     <% l('messages.hello.dancer') %>
+    # or for big texts
+    <% IF language_tag('fr') %>
+    ...
+    <% ELSE %>
+    ...
+    <% ENDIF %>
 
 
 =head1 DESCRIPTION
@@ -134,7 +141,7 @@ language tag or change this via options 'language_default'.
 If you use arbitrary message keys, use i_default.po to translate
 into English, otherwise the message key itself is returned.
 
-Standart directory is in C<I18N>.
+Standart directory is in C<I18N>. In this directory are stored every lang files (*.pm|po|mo).
 
 =cut
 
@@ -335,6 +342,38 @@ sub _localize {
 	#return &{ ref($c) . '::_loc' }( $_[0], @{ $_[1] } ) if ( ref $_[1] eq 'ARRAY' );
 	#return &{ ref($c) . '::_loc' }(@_);
 }
+
+=head1 OUTLINE
+
+    $ dancer -a MyAPP
+    $ cd MyAPP
+    $ mkdir I18N
+    $ xgettext.pl --output=I18N/messages.pot --directory=lib/
+    $ ls I18N/
+    messages.pot
+
+    $ msginit --input=messages.pot --output=sv.po --locale=sv.utf8
+    Created I18N/sv.po.
+
+    $ vim I18N/sv.po
+
+    "Content-Type: text/plain; charset=utf-8\n"
+
+    #: lib/MyApp.pm:50
+    msgid "Guest"
+    msgstr "Gäst"
+    
+    #. ($name)
+    #: lib/MyApp.pm:54
+    msgid "Welcome %1!"
+    msgstr "Välkommen %1!"
+
+    $ xgettext.pl --output=I18N/messages.pot --directory=view/
+    $ msgmerge --update I18N/sv.po I18N/messages.pot
+    . done.
+
+    # compile message catalog to binary format
+    $ msgfmt --output-file=I18N/sv.mo I18N/sv.po
 
 =head1 SEE ALSO
 
