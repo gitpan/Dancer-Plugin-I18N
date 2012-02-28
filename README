@@ -73,6 +73,23 @@ CONFIGURATION
     Standart directory is in "I18N". In this directory are stored every lang
     files (*.pm|po|mo).
 
+    You can defined own function for call locale via settings name "func".
+
+        plugins:
+           I18N:
+              func: "N_"
+
+    Or defined as array:
+
+        plugins:
+           I18N:
+              func: ["N_", "_"]
+
+    Now you can call this function in template or in libs.
+
+        # index.tt
+        hello in <% languages %> => <% N_('hello') %>
+
 METHODS
   languages
     Contains languages.
@@ -120,7 +137,7 @@ METHODS
    2. Test if given locale is installed in hashref
             my $t = installed_language('en');
 
-  l | localize
+  localize | l
     Localize text.
 
         print localize( 'Welcome to Dancer, [_1]', 'sri' );

@@ -14,13 +14,29 @@ use I18N::LangTags::List;
 use Locale::Maketext::Simple;
 #require Locale::Maketext::Simple;
 
-our $VERSION = '0.13';
+our $VERSION = '0.20';
 #our %options = ( Export => '_loc', Decode => 1 );
 #our %options = ( Decode => 1, Encoding => 'utf-8' );
 our %options = ( Decode => 1 );
 
 # Handler of struct
 my $handle = undef;
+
+# Own subs definition
+our @array_subs = ();
+{
+	my $settings = plugin_setting(); 
+	my $n = $settings->{func};
+	if (!ref($n) && length($n))	{
+		register $n => sub { _localize(@_); };
+		push(@array_subs, $n);
+	} elsif (ref($n) eq "ARRAY")	{
+		foreach my $k (@$n)	{
+			register $k => sub { _localize(@_); };
+			push(@array_subs, $k);
+		}
+	} 
+}
 
 # Hook definitions
 add_hook(
@@ -38,6 +54,10 @@ add_hook(
         $tokens->{language_tag}  = sub { language_tag(@_) };
         $tokens->{languages} = sub { languages(@_) };
         $tokens->{installed_languages} = sub { installed_languages(@_) };
+
+		foreach my $k (@{Dancer::Plugin::I18N::array_subs})	{
+			$tokens->{$k} = sub { localize(@_) };		
+		}
     },
 );
 
@@ -109,7 +129,7 @@ sub _setup_i18n {
     my $user_opts = $settings->{ maketext_options } || {};
     local %options = (%options, Path => $lang_path, %$user_opts );
 
-#    Locale::Maketext::Simple->import( %options );
+	#Locale::Maketext::Simple->import( %options );
 	my $self = __PACKAGE__;
     eval <<"";
         package $self;
@@ -119,7 +139,7 @@ sub _setup_i18n {
         error("Couldn't initialize i18n", "$@");
     }
     else {
-        debug("Initialized i18n");# if $self->debug;
+        debug("Initialized i18n");
     }
 
 =head1 CONFIGURATION
@@ -142,6 +162,23 @@ If you use arbitrary message keys, use i_default.po to translate
 into English, otherwise the message key itself is returned.
 
 Standart directory is in C<I18N>. In this directory are stored every lang files (*.pm|po|mo).
+
+You can defined own function for call locale via settings name C<func>.
+
+    plugins:
+       I18N:
+          func: "N_"
+
+Or defined as array:
+
+    plugins:
+       I18N:
+          func: ["N_", "_"]
+
+Now you can call this function in template or in libs.
+
+    # index.tt
+    hello in <% languages %> => <% N_('hello') %>
 
 =cut
 
@@ -312,7 +349,7 @@ register installed_languages	=> sub {
 	}
 };
 
-=head2 l | localize
+=head2 localize | l
 
 Localize text.
 
@@ -333,8 +370,9 @@ register l				=> sub { _localize(@_); };
 
 sub _localize {
 	_setup_i18n();
+	return '' if (scalar(@_) == 0);
 	return join '', @_ if (!defined($handle));
-
+	
     return loc( $_[0], @{ $_[1] } ) if ( ref $_[1] eq 'ARRAY' );
     return loc(@_);
 	#no strict 'refs';
