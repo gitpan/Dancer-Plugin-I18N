@@ -1,5 +1,7 @@
 Revision history for Perl extension Dancer::Plugin::I18N
 
+0.22    2012.03.01
+        - Putted own funcs
 0.13    Wed Feb 22 14:55:12 2012
         - changing documentation
 0.12    Mon Feb 20 18:18:22 2012

@@ -14,7 +14,7 @@ use I18N::LangTags::List;
 use Locale::Maketext::Simple;
 #require Locale::Maketext::Simple;
 
-our $VERSION = '0.20';
+our $VERSION = '0.22';
 #our %options = ( Export => '_loc', Decode => 1 );
 #our %options = ( Decode => 1, Encoding => 'utf-8' );
 our %options = ( Decode => 1 );
@@ -27,7 +27,8 @@ our @array_subs = ();
 {
 	my $settings = plugin_setting(); 
 	my $n = $settings->{func};
-	if (!ref($n) && length($n))	{
+	if (!defined($n))	{
+	} elsif (!ref($n) && length($n))	{
 		register $n => sub { _localize(@_); };
 		push(@array_subs, $n);
 	} elsif (ref($n) eq "ARRAY")	{
@@ -216,6 +217,15 @@ Now you can call this function in template or in libs.
 			);
 	push (@languages, $settings->{lang_default} || 'i-default');
 	$handle->{languages} = \@languages;
+	_setup_lang();
+}
+
+sub _setup_lang	{
+	return if (!$handle || !exists($handle->{languages}));
+	#no strict 'refs';
+	#my $c = __PACKAGE__;
+	#&{ ref($c) . '::_loc_lang' }( @{ $handle->{languages} } );
+   	loc_lang( @{ $handle->{languages} } );
 }
 
 =head1 METHODS
@@ -260,13 +270,11 @@ register languages		=> sub {
 			unshift(@{$handle->{languages}}, $lang);
 		}
 
-		#no strict 'refs';
-		#my $c = __PACKAGE__;
-		#&{ ref($c) . '::_loc_lang' }( @{ $handle->{languages} } );
-    	loc_lang( @{ $handle->{languages} } );
+		_setup_lang();
+	} else	{
+		return $handle->{languages};
 	}
-
-	return $handle->{languages};
+	return;
 };
 
 =head2 language

@@ -14,7 +14,11 @@ WriteMakefile(
     PREREQ_PM => {
         'Dancer' => 1.3000,
         'Test::More' => 0,
+		'Locale::Maketext::Simple' => "0.18",
+		'I18N::LangTags' => '0.35',
+		'Locale::Maketext::Lexicon' => 0,
     },
+	(MM->can('signature_target') ? (SIGN => 1) : ()),
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
     clean               => { FILES => 'Dancer-Plugin-I18N-*' },
 );
