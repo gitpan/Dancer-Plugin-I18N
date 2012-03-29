@@ -35,7 +35,7 @@ SYNOPSIS
         # or
         <% l('Hello Dancer') %>
         <% l('Hello [_1]', 'Dancer') %>
-        <[% l('lalala[_1]lalala[_2]', ['test', 'foo']) %>
+        <% l('lalala[_1]lalala[_2]', ['test', 'foo']) %>
         <% l('messages.hello.dancer') %>
         # or for big texts
         <% IF language_tag('fr') %>
@@ -89,6 +89,34 @@ CONFIGURATION
 
         # index.tt
         hello in <% languages %> => <% N_('hello') %>
+
+    Automaticaly change language via param 'lang', can be change in setting
+    via 'name_param' and will be stored in session in tag 'language' or can
+    be changed via 'name_session'. When you use this settings, this plugin
+    automaticaly setting language when you call param 'name_param'. Now if
+    you call every page with param 'lang=en' now plugin automatically set
+    new locale.
+
+        plugins:
+           I18N:
+              name_param: lang
+              name_session: language
+
+    Automaticaly settings locales must installed libintl-perl in version
+    1.17 or newer.
+
+        plugins:
+           I18N:
+              setlocale: "LC_TIME"
+
+    Or defined as array:
+
+        plugins:
+           I18N:
+              setlocale: ["LC_TIME","LC_NUMERIC"]
+
+    When you set LC_TIME and use time function for print day name or month
+    name, then will be printed in localed name.
 
 METHODS
   languages
@@ -187,12 +215,12 @@ SEE ALSO
     Catalyst::Plugin::I18N
 
 AUTHOR
-    franck cuny <franck@lumberjaph.net>
-
     Igor Bujna <igor.bujna@post.cz>
 
 ACKNOWLEDGEMENTS
     Thanks for authors of Catalyst::Plugin::I18N with idea how make it.
+
+    franck cuny <franck@lumberjaph.net> for Dancer::Plugin:i18n
 
 LICENSE
     This library is free software; you can redistribute it and/or modify it

@@ -1,3 +1,9 @@
-first we got <% l('hello') %>
+string is <% str %>
 <% languages('de') %>
-then we have <% l('hello') %>
+first we got <% N_("hello") %>
+Germany Monday - <% day_name('2') %>
+<% languages('cs') %>
+then we have <% l("hello") %>
+Czech saturday - <% day_name('7') %>
+<% languages('en') %>
+test pm file <% l('hello') %>

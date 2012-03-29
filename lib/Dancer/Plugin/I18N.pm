@@ -7,25 +7,32 @@ use Dancer::Plugin;
 use Dancer::Config;
 use Dancer ':syntax';
 
+use Encode;
+use POSIX qw(locale_h);
+
 use I18N::LangTags;
 use I18N::LangTags::Detect;
 use I18N::LangTags::List;
 
 use Locale::Maketext::Simple;
-#require Locale::Maketext::Simple;
 
-our $VERSION = '0.22';
-#our %options = ( Export => '_loc', Decode => 1 );
-#our %options = ( Decode => 1, Encoding => 'utf-8' );
-our %options = ( Decode => 1 );
+our $VERSION = '0.40';
+our %options = ( Decode => 1,
+				 Export => '_loc',
+				 #Encoding => 'utf-8',
+				 );
 
 # Handler of struct
 my $handle = undef;
 
 # Own subs definition
 our @array_subs = ();
-{
-	my $settings = plugin_setting(); 
+
+# Settings
+my $settings = undef;
+
+sub _load_i18n_settings {
+	$settings = plugin_setting();
 	my $n = $settings->{func};
 	if (!defined($n))	{
 	} elsif (!ref($n) && length($n))	{
@@ -37,19 +44,43 @@ our @array_subs = ();
 			push(@array_subs, $k);
 		}
 	} 
+	if($settings->{setlocale})	{
+		eval { require Locale::Util; 1 };
+		if ($@) {
+			$settings->{setlocale} = undef;
+			error("Couldn't initialize Locale::Util ... ", "$@");
+		}
+	}
 }
 
 # Hook definitions
 add_hook(
     before => sub {
 		_setup_i18n();
-    }
+
+		# Changing and setting language
+		my $np = $settings->{name_param} || "lang";
+		my $ns = $settings->{name_session} || "language";
+		if ($np && $ns)	{
+			if (my $p = param $np) {
+				my $s = session($ns);
+				if ((!$s || $p ne $s) && (installed_languages($p))) {
+					session $ns => $p;
+					languages($p);
+				}
+			} elsif (!session($ns))  {
+				session $ns => language_tag();
+			} elsif (!language_tag(session($ns)))    {
+				languages(session($ns));
+			}
+		}
+	},
 );
 
 add_hook(
     before_template => sub {
         my $tokens = shift;
-        $tokens->{l}         = sub { localize(@_) };
+        $tokens->{l}         = sub { l(@_) };
         $tokens->{localize}  = sub { localize(@_) };
         $tokens->{language}  = sub { language(@_) };
         $tokens->{language_tag}  = sub { language_tag(@_) };
@@ -61,6 +92,8 @@ add_hook(
 		}
     },
 );
+
+=encoding utf8
 
 =head1 NAME
 
@@ -101,7 +134,7 @@ Dancer::Plugin::I18N - Intenationalization for Dancer
     # or
     <% l('Hello Dancer') %>
     <% l('Hello [_1]', 'Dancer') %>
-    <[% l('lalala[_1]lalala[_2]', ['test', 'foo']) %>
+    <% l('lalala[_1]lalala[_2]', ['test', 'foo']) %>
     <% l('messages.hello.dancer') %>
     # or for big texts
     <% IF language_tag('fr') %>
@@ -123,7 +156,7 @@ sub _setup_i18n {
 
 	return if (defined($handle) && ref($handle) eq "HASH");
 
-	my $settings = plugin_setting(); 
+	_load_i18n_settings() if (!$settings);
 
 	my $lang_path = $settings->{directory} || path(setting('appdir'), 'I18N');
 
@@ -181,6 +214,33 @@ Now you can call this function in template or in libs.
     # index.tt
     hello in <% languages %> => <% N_('hello') %>
 
+
+Automaticaly change language via param 'lang', can be change in setting 
+via 'name_param' and will be stored in session in tag 'language' or 
+can be changed via 'name_session'. When you use this settings, this plugin automaticaly
+setting language when you call param 'name_param'. Now if you call every page with 
+param 'lang=en' now plugin automatically set new locale.
+
+    plugins:
+       I18N:
+          name_param: lang
+          name_session: language
+
+
+Automaticaly settings locales must installed L<libintl-perl> in version 1.17 or newer.
+
+    plugins:
+       I18N:
+          setlocale: "LC_TIME"
+
+Or defined as array:
+
+    plugins:
+       I18N:
+          setlocale: ["LC_TIME","LC_NUMERIC"]
+
+When you set LC_TIME and use time function for print day name or month name, then will be printed in localed name.
+
 =cut
 
 	# We re-read the list of files in $lang_path
@@ -220,12 +280,43 @@ Now you can call this function in template or in libs.
 	_setup_lang();
 }
 
+# Problem is where settings is codepage UTF8 and must be encode to ASCII
+sub _txt2ascii	{
+	return $_[0] ? Encode::encode("ISO-8859-1", $_[0]) : '';
+}
+
+# Setting locale
+sub _set_locale	{
+	my $lang = shift || return;
+	my $charset = shift;
+
+	foreach my $l (@_)	{
+		my $s = &_txt2ascii($l);
+		foreach my $k ("ALL", "COLLATE", "CTYPE", "MESSAGES", "MONETARY", "NUMERIC", "TIME")	{
+			if ($s eq ("LC_" . $k))	{
+				no strict 'refs';
+				my $c = &{"POSIX::LC_" . $k};
+				Locale::Util::web_set_locale ($lang, $charset, $c) if (defined($c));
+				last;
+			}
+		}
+	}
+}
+
 sub _setup_lang	{
 	return if (!$handle || !exists($handle->{languages}));
-	#no strict 'refs';
-	#my $c = __PACKAGE__;
-	#&{ ref($c) . '::_loc_lang' }( @{ $handle->{languages} } );
-   	loc_lang( @{ $handle->{languages} } );
+	no strict 'refs';
+	my $c = __PACKAGE__;
+	&{ $c . '::_loc_lang' }( @{ $handle->{languages} } );
+	#loc_lang( @{ $handle->{languages} } );
+
+	_load_i18n_settings() if (!$settings);
+
+	# Set locale from config
+	if (my $s = $settings->{setlocale})	{
+		&_set_locale(language_tag(), &_txt2ascii(setting('charset')) || undef,
+					 (ref($s) eq "ARRAY" ? @$s : $s));
+	}
 }
 
 =head1 METHODS
@@ -381,12 +472,12 @@ sub _localize {
 	return '' if (scalar(@_) == 0);
 	return join '', @_ if (!defined($handle));
 	
-    return loc( $_[0], @{ $_[1] } ) if ( ref $_[1] eq 'ARRAY' );
-    return loc(@_);
-	#no strict 'refs';
-	#my $c = __PACKAGE__;
-	#return &{ ref($c) . '::_loc' }( $_[0], @{ $_[1] } ) if ( ref $_[1] eq 'ARRAY' );
-	#return &{ ref($c) . '::_loc' }(@_);
+    #return loc( $_[0], @{ $_[1] } ) if ( ref $_[1] eq 'ARRAY' );
+    #return loc(@_);
+	no strict 'refs';
+	my $c = __PACKAGE__;
+	return &{ $c . '::_loc' }( $_[0], @{ $_[1] } ) if ( ref $_[1] eq 'ARRAY' );
+	return &{ $c . '::_loc' }(@_);
 }
 
 =head1 OUTLINE
@@ -429,13 +520,13 @@ L<Catalyst::Plugin::I18N>
 
 =head1 AUTHOR
 
-franck cuny E<lt>franck@lumberjaph.netE<gt>
-
 Igor Bujna E<lt>igor.bujna@post.czE<gt>
 
 =head1 ACKNOWLEDGEMENTS
 
 Thanks for authors of L<Catalyst::Plugin::I18N> with idea how make it.
+
+franck cuny E<lt>franck@lumberjaph.netE<gt> for L<Dancer::Plugin:i18n>
 
 =head1 LICENSE
 
