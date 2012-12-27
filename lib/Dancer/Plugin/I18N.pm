@@ -14,13 +14,15 @@ use I18N::LangTags;
 use I18N::LangTags::Detect;
 use I18N::LangTags::List;
 
-use Locale::Maketext::Simple;
+use Locale::Maketext::Simple ();
 
-our $VERSION = '0.40';
-our %options = ( Decode => 1,
-				 Export => '_loc',
-				 #Encoding => 'utf-8',
-				 );
+our $VERSION = '0.41';
+our %options = (
+    Decode => 1,
+    Export => '_loc',
+
+    #Encoding => 'utf-8',
+);
 
 # Handler of struct
 my $handle = undef;
@@ -32,64 +34,66 @@ our @array_subs = ();
 my $settings = undef;
 
 sub _load_i18n_settings {
-	$settings = plugin_setting();
-	my $n = $settings->{func};
-	if (!defined($n))	{
-	} elsif (!ref($n) && length($n))	{
-		register $n => sub { _localize(@_); };
-		push(@array_subs, $n);
-	} elsif (ref($n) eq "ARRAY")	{
-		foreach my $k (@$n)	{
-			register $k => sub { _localize(@_); };
-			push(@array_subs, $k);
-		}
-	} 
-	if($settings->{setlocale})	{
-		eval { require Locale::Util; 1 };
-		if ($@) {
-			$settings->{setlocale} = undef;
-			error("Couldn't initialize Locale::Util ... ", "$@");
-		}
-	}
+    $settings = plugin_setting();
+    my $n = $settings->{func};
+    if (!defined($n)) {
+    } elsif (!ref($n) && length($n)) {
+        register $n => sub { _localize(@_); };
+        push(@array_subs, $n);
+    } elsif (ref($n) eq "ARRAY") {
+        foreach my $k (@$n) {
+            register $k => sub { _localize(@_); };
+            push(@array_subs, $k);
+        }
+    }
+    if ($settings->{setlocale}) {
+        eval { require Locale::Util; 1 };
+        if ($@) {
+            $settings->{setlocale} = undef;
+            error("Couldn't initialize Locale::Util ... ", "$@");
+        }
+    }
 }
 
 # Hook definitions
 add_hook(
     before => sub {
-		_setup_i18n();
+        _setup_i18n();
 
-		# Changing and setting language
-		my $np = $settings->{name_param} || "lang";
-		my $ns = $settings->{name_session} || "language";
-		if ($np && $ns)	{
-			if (my $p = param $np) {
-				my $s = session($ns);
-				if ((!$s || $p ne $s) && (installed_languages($p))) {
-					session $ns => $p;
-					languages($p);
-				}
-			} elsif (!session($ns))  {
-				session $ns => language_tag();
-			} elsif (!language_tag(session($ns)))    {
-				languages(session($ns));
-			}
-		}
-	},
+        # Changing and setting language
+        my $np = $settings->{name_param}   || "lang";
+        my $ns = $settings->{name_session} || "language";
+        if ($np && $ns) {
+            if (my $p = param $np) {
+
+                #my $s = session($ns);
+                #if ((!$s || $p ne $s) && (installed_languages($p))) {
+                if (installed_languages($p)) {
+                    session $ns => $p;
+                    languages($p);
+                }
+            } elsif (!session($ns)) {
+                session $ns => language_tag();
+            } elsif (!language_tag(session($ns))) {
+                languages(session($ns));
+            }
+        }
+    },
 );
 
 add_hook(
     before_template => sub {
         my $tokens = shift;
-        $tokens->{l}         = sub { l(@_) };
-        $tokens->{localize}  = sub { localize(@_) };
-        $tokens->{language}  = sub { language(@_) };
-        $tokens->{language_tag}  = sub { language_tag(@_) };
-        $tokens->{languages} = sub { languages(@_) };
+        $tokens->{l}                   = sub { l(@_) };
+        $tokens->{localize}            = sub { localize(@_) };
+        $tokens->{language}            = sub { language(@_) };
+        $tokens->{language_tag}        = sub { language_tag(@_) };
+        $tokens->{languages}           = sub { languages(@_) };
         $tokens->{installed_languages} = sub { installed_languages(@_) };
 
-		foreach my $k (@{Dancer::Plugin::I18N::array_subs})	{
-			$tokens->{$k} = sub { localize(@_) };		
-		}
+        foreach my $k (@{Dancer::Plugin::I18N::array_subs}) {
+            $tokens->{$k} = sub { localize(@_) };
+        }
     },
 );
 
@@ -152,27 +156,29 @@ Dancer::Plugin::I18N add L<Locale::Maketext::Simple> to your L<Dancer> applicati
 
 =cut
 
-sub _setup_i18n { 
+sub _setup_i18n {
 
-	return if (defined($handle) && ref($handle) eq "HASH");
+    return if (defined($handle) && ref($handle) eq "HASH");
 
-	_load_i18n_settings() if (!$settings);
+    _load_i18n_settings() if (!$settings);
 
-	my $lang_path = $settings->{directory} || path(setting('appdir'), 'I18N');
+    my $lang_path = $settings->{directory} || path(setting('appdir'), 'I18N');
 
-    my $user_opts = $settings->{ maketext_options } || {};
-    local %options = (%options, Path => $lang_path, %$user_opts );
+    my $user_opts = $settings->{maketext_options} || {};
 
-	#Locale::Maketext::Simple->import( %options );
-	my $self = __PACKAGE__;
-    eval <<"";
+    # Option should be defined as local, because we don't want to change global definition for this
+    local %options = (%options, Path => $lang_path, %$user_opts);
+
+    #Locale::Maketext::Simple->import( %options );
+    my $self = __PACKAGE__;
+    eval <<END;
         package $self;
         Locale::Maketext::Simple->import( \%Dancer\::Plugin\::I18N\::options );
+END
 
     if ($@) {
         error("Couldn't initialize i18n", "$@");
-    }
-    else {
+    } else {
         debug("Initialized i18n");
     }
 
@@ -243,80 +249,78 @@ When you set LC_TIME and use time function for print day name or month name, the
 
 =cut
 
-	# We re-read the list of files in $lang_path
-	# Originally tried to detect via namespaces, but this lists the currently set LANG envvar, which may not
-	# be a supported language. Also misses out .pm files
-	# Is acceptable to re-read this directory once on setup
-	my $languages_list = {};
-	if (opendir my $langdir, $lang_path) {
-		foreach my $entry (readdir $langdir) {
-			next unless $entry =~ m/\A (\w+)\.(?:pm|po|mo) \z/xms;
-			my $langtag = $1;
-			next if $langtag eq "i_default";
-			my $language_tag = $langtag;
-			#my $language_tag = "$class\::I18N"->get_handle( $langtag )->language_tag;
-			# Did use the get_handle, but that caused problems because en became "Default (Fallthru) Language"
-			# Just do a simple convert instead
-			$language_tag =~ s/_/-/g;
-			$languages_list->{ $langtag } = I18N::LangTags::List::name( $language_tag );
-		}
-		closedir $langdir;
-	}
+    # We re-read the list of files in $lang_path
+    # Originally tried to detect via namespaces, but this lists the currently set LANG envvar, which may not
+    # be a supported language. Also misses out .pm files
+    # Is acceptable to re-read this directory once on setup
+    my $languages_list = {};
+    if (opendir my $langdir, $lang_path) {
+        foreach my $entry (readdir $langdir) {
+            next unless $entry =~ m/\A (\w+)\.(?:pm|po|mo) \z/xms;
+            my $langtag = $1;
+            next if $langtag eq "i_default";
+            my $language_tag = $langtag;
 
-	$handle = {};
-	$handle->{installed_languages} = $languages_list;
-	
-	# Setting language
-	my $request = request;
-	my @languages = ();
+            #my $language_tag = "$class\::I18N"->get_handle( $langtag )->language_tag;
+            # Did use the get_handle, but that caused problems because en became "Default (Fallthru) Language"
+            # Just do a simple convert instead
+            $language_tag =~ s/_/-/g;
+            $languages_list->{$langtag} = I18N::LangTags::List::name($language_tag);
+        }
+        closedir $langdir;
+    }
+
+    $handle = {};
+    $handle->{installed_languages} = $languages_list;
+
+    # Setting language
+    my $request   = request;
+    my @languages = ();
     push @languages,
-			I18N::LangTags::implicate_supers(
-				I18N::LangTags::Detect->http_accept_langs(
-					scalar $request->accept_language
-				)
-			);
-	push (@languages, $settings->{lang_default} || 'i-default');
-	$handle->{languages} = \@languages;
-	_setup_lang();
+      I18N::LangTags::implicate_supers(I18N::LangTags::Detect->http_accept_langs(scalar $request->accept_language));
+    push(@languages, $settings->{lang_default} || 'i-default');
+    $handle->{languages} = \@languages;
+    _setup_lang();
 }
 
 # Problem is where settings is codepage UTF8 and must be encode to ASCII
-sub _txt2ascii	{
-	return $_[0] ? Encode::encode("ISO-8859-1", $_[0]) : '';
+sub _txt2ascii {
+    return $_[0] ? Encode::encode("ISO-8859-1", $_[0]) : '';
 }
 
 # Setting locale
-sub _set_locale	{
-	my $lang = shift || return;
-	my $charset = shift;
+sub _set_locale {
+    my $lang = shift || return;
+    my $charset = shift;
 
-	foreach my $l (@_)	{
-		my $s = &_txt2ascii($l);
-		foreach my $k ("ALL", "COLLATE", "CTYPE", "MESSAGES", "MONETARY", "NUMERIC", "TIME")	{
-			if ($s eq ("LC_" . $k))	{
-				no strict 'refs';
-				my $c = &{"POSIX::LC_" . $k};
-				Locale::Util::web_set_locale ($lang, $charset, $c) if (defined($c));
-				last;
-			}
-		}
-	}
+    foreach my $l (@_) {
+        my $s = &_txt2ascii($l);
+        foreach my $k ("ALL", "COLLATE", "CTYPE", "MESSAGES", "MONETARY", "NUMERIC", "TIME") {
+            if ($s eq ("LC_" . $k)) {
+                no strict 'refs';
+                my $c = &{"POSIX::LC_" . $k};
+                Locale::Util::web_set_locale($lang, $charset, $c)
+                  if (defined($c));
+                last;
+            }
+        }
+    }
 }
 
-sub _setup_lang	{
-	return if (!$handle || !exists($handle->{languages}));
-	no strict 'refs';
-	my $c = __PACKAGE__;
-	&{ $c . '::_loc_lang' }( @{ $handle->{languages} } );
-	#loc_lang( @{ $handle->{languages} } );
+sub _setup_lang {
+    return if (!$handle || !exists($handle->{languages}));
+    no strict 'refs';
+    my $c = __PACKAGE__;
+    &{$c . '::_loc_lang'}(@{$handle->{languages}});
 
-	_load_i18n_settings() if (!$settings);
+    #loc_lang( @{ $handle->{languages} } );
 
-	# Set locale from config
-	if (my $s = $settings->{setlocale})	{
-		&_set_locale(language_tag(), &_txt2ascii(setting('charset')) || undef,
-					 (ref($s) eq "ARRAY" ? @$s : $s));
-	}
+    _load_i18n_settings() if (!$settings);
+
+    # Set locale from config
+    if (my $s = $settings->{setlocale}) {
+        &_set_locale(language_tag(), &_txt2ascii(setting('charset')) || undef, (ref($s) eq "ARRAY" ? @$s : $s));
+    }
 }
 
 =head1 METHODS
@@ -342,30 +346,31 @@ Contains languages.
    languages();
 
 =cut
-register languages		=> sub { 
+
+register languages => sub {
     my $lang = shift;
 
-	_setup_i18n();
-	return if (!$handle);
+    _setup_i18n();
+    return if (!$handle);
 
     if ($lang) {
-		if (ref($lang) eq "ARRAY")	{
-			$handle->{languages} = $lang;
-		} else	{
-			for (my $i = 0; $i < scalar(@{$handle->{languages}}); $i ++)	{
-				if ($handle->{languages}->[$i] eq $lang)	{
-					splice(@{$handle->{languages}},$i,1);
-					last;
-				}
-			}
-			unshift(@{$handle->{languages}}, $lang);
-		}
+        if (ref($lang) eq "ARRAY") {
+            $handle->{languages} = $lang;
+        } else {
+            for (my $i = 0; $i < scalar(@{$handle->{languages}}); $i++) {
+                if ($handle->{languages}->[$i] eq $lang) {
+                    splice(@{$handle->{languages}}, $i, 1);
+                    last;
+                }
+            }
+            unshift(@{$handle->{languages}}, $lang);
+        }
 
-		_setup_lang();
-	} else	{
-		return $handle->{languages};
-	}
-	return;
+        _setup_lang();
+    } else {
+        return $handle->{languages};
+    }
+    return;
 };
 
 =head2 language
@@ -374,14 +379,14 @@ return selected locale in your locales list or check if given locale is used(sam
 
 =cut
 
-register language		=> sub { 
-	my $lang_test = shift;
+register language => sub {
+    my $lang_test = shift;
 
-	return language_tag($lang_test) if (defined($lang_test));
+    return language_tag($lang_test) if (defined($lang_test));
 
-	my $c = __PACKAGE__;
-	my $class = ref $c || $c;
-    my $lang = $handle ? "$class\::I18N"->get_handle( @{ $handle->{languages} } ) : "";
+    my $c     = __PACKAGE__;
+    my $class = ref $c || $c;
+    my $lang  = $handle ? "$class\::I18N"->get_handle(@{$handle->{languages}}) : "";
     $lang =~ s/.*:://;
 
     return $lang;
@@ -406,19 +411,22 @@ are joined with a dash and not an underscore.
 
 =cut
 
-register language_tag	=> sub { 
-	my $lang_test = shift;
+register language_tag => sub {
+    my $lang_test = shift;
 
-	my $c = __PACKAGE__;
-	my $class = ref $c || $c;
-    my $ret = $handle ? "$class\::I18N"->get_handle( @{ $handle->{languages} } )->language_tag : "";
+    my $c = __PACKAGE__;
+    my $class = ref $c || $c;
+    my $ret =
+      $handle
+      ? "$class\::I18N"->get_handle(@{$handle->{languages}})->language_tag
+      : "";
 
-	if (defined($lang_test))	{
-		return 1 if ($ret eq $lang_test || $ret =~ /^$lang_test/);
-		return 0;
-	}
+    if (defined($lang_test)) {
+        return 1 if ($ret eq $lang_test || $ret =~ /^$lang_test/);
+        return 0;
+    }
 
-	return $ret;
+    return $ret;
 };
 
 =head2 installed_languages
@@ -438,14 +446,16 @@ If the descriptive name is not available, will be undef.
 
 =cut
 
-register installed_languages	=> sub { 
-	if (defined($handle))	{
-		if (defined($_[0]))	{
-			return 1 if($handle->{installed_languages} && $handle->{installed_languages}->{$_[0]});
-			return 0;
-		}
-		return $handle->{installed_languages};
-	}
+register installed_languages => sub {
+    if (defined($handle)) {
+        if (defined($_[0])) {
+            return 1
+              if ( $handle->{installed_languages}
+                && $handle->{installed_languages}->{$_[0]});
+            return 0;
+        }
+        return $handle->{installed_languages};
+    }
 };
 
 =head2 localize | l
@@ -464,20 +474,20 @@ or in template
 
 =cut
 
-register localize		=> sub { _localize(@_); };
-register l				=> sub { _localize(@_); };
+register localize => sub { _localize(@_); };
+register l        => sub { _localize(@_); };
 
 sub _localize {
-	_setup_i18n();
-	return '' if (scalar(@_) == 0);
-	return join '', @_ if (!defined($handle));
-	
+    _setup_i18n();
+    return '' if (scalar(@_) == 0);
+    return join '', @_ if (!defined($handle));
+
     #return loc( $_[0], @{ $_[1] } ) if ( ref $_[1] eq 'ARRAY' );
     #return loc(@_);
-	no strict 'refs';
-	my $c = __PACKAGE__;
-	return &{ $c . '::_loc' }( $_[0], @{ $_[1] } ) if ( ref $_[1] eq 'ARRAY' );
-	return &{ $c . '::_loc' }(@_);
+    no strict 'refs';
+    my $c = __PACKAGE__;
+    return &{$c . '::_loc'}($_[0], @{$_[1]}) if (ref $_[1] eq 'ARRAY');
+    return &{$c . '::_loc'}(@_);
 }
 
 =head1 OUTLINE
@@ -526,7 +536,9 @@ Igor Bujna E<lt>igor.bujna@post.czE<gt>
 
 Thanks for authors of L<Catalyst::Plugin::I18N> with idea how make it.
 
-franck cuny E<lt>franck@lumberjaph.netE<gt> for L<Dancer::Plugin:i18n>
+Franck Cuny E<lt>franck@lumberjaph.netE<gt> for L<Dancer::Plugin:i18n>
+
+Alexandre (Midnite) Jousset
 
 =head1 LICENSE
 
@@ -535,6 +547,7 @@ it under the same terms as Perl itself.
 
 =cut
 
+_load_i18n_settings() if (!$settings);
 register_plugin;
 
 1;
