@@ -1,5 +1,8 @@
 Revision history for Perl extension Dancer::Plugin::I18N
 
+0.42	2014.03.14
+		- Fix documentation error (thanx Hugues Max)
+		- Merge patch from dancer-plugin-i18n (thanx Yanick Champoux)
 0.41	2012.12.27
 		- Put some sugestion from Alexandre (Midnite) Jousset
 0.40	2012.03.29

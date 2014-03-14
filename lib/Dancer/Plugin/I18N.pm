@@ -16,7 +16,7 @@ use I18N::LangTags::List;
 
 use Locale::Maketext::Simple ();
 
-our $VERSION = '0.41';
+our $VERSION = '0.42';
 our %options = (
     Decode => 1,
     Export => '_loc',
@@ -101,7 +101,7 @@ add_hook(
 
 =head1 NAME
 
-Dancer::Plugin::I18N - Intenationalization for Dancer
+Dancer::Plugin::I18N - Internationalization for Dancer
 
 =head1 SYNOPSIS
 
@@ -437,11 +437,11 @@ If the descriptive name is not available, will be undef.
 
 =head3 1. Returning hashref installed language files
 
-	my $l = installed_language();
+	my $l = installed_languages();
 
 =head3 2. Test if given locale is installed in hashref
 
-	my $t = installed_language('en');
+	my $t = installed_languages('en');
 	
 
 =cut
